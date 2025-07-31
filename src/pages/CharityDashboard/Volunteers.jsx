@@ -11,9 +11,10 @@ function Volunteers() {
 
   useEffect(() => {
     if (!user?.uid) return;
+
     const oppsRef = ref(database, "opportunities");
 
-    const unsubscribe = onValue(oppsRef, (snapshot) => {
+    const unsubscribeOpps = onValue(oppsRef, async (snapshot) => {
       const data = snapshot.val();
       const titles = {};
       const oppIds = [];
@@ -27,53 +28,72 @@ function Volunteers() {
         });
 
         setOpportunityTitles(titles);
-        fetchApplicants(oppIds);
-      }
 
-      function fetchApplicants(oppIds) {
-        const appsRef = ref(database, "applications");
+        const appsRef = ref(database, "applications_flat");
+        const appsSnapshot = await get(appsRef);
+        const appsData = appsSnapshot.val();
+        const result = [];
 
-        onValue(appsRef, (snapshot) => {
-          const data = snapshot.val();
-          const result = [];
+        if (appsData) {
+          const userPromises = oppIds.flatMap((oppId) => {
+            const oppApps = appsData[oppId];
+            if (!oppApps) return [];
 
-          if (data) {
-            oppIds.forEach((oppId) => {
-              const users = data[oppId];
-              if (users) {
-                Object.entries(users).forEach(([userId, details]) => {
-                  result.push({
-                    opportunityId: oppId,
-                    userId,
-                    ...details,
-                    status: details.status || "pending",
-                  });
-                });
-              }
+            return Object.entries(oppApps).map(async ([userId, app]) => {
+              const userRef = ref(database, `users/${userId}`);
+              const userSnapshot = await get(userRef);
+              const userData = userSnapshot.val() || {};
+
+              return {
+                opportunityId: oppId,
+                userId,
+                name: userData.name || "Unknown",
+                email: userData.email || "Unknown",
+                appliedAt: app.appliedAt,
+                status: app.status || "pending",
+              };
             });
-          }
+          });
 
-          setApplicants(result);
-          setLoading(false);
-        });
+          const applicants = await Promise.all(userPromises);
+          setApplicants(applicants);
+        } else {
+          setApplicants([]);
+        }
+
+        setLoading(false);
+      } else {
+        setOpportunityTitles({});
+        setApplicants([]);
+        setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeOpps();
+    };
   }, [user]);
 
   const handleUpdateStatus = async (oppId, userId, status) => {
-    const appRef = ref(database, `applications/${oppId}/${userId}`);
+    const appRef = ref(database, `applications_flat/${oppId}/${userId}`);
+
+    // Get the current application data
+    const snapshot = await get(appRef);
+    if (!snapshot.exists()) return;
+
+    const currentData = snapshot.val();
+
     const updated = {
-      ...applicants.find(
-        (app) => app.opportunityId === oppId && app.userId === userId
-      ),
+      ...currentData,
       status,
     };
 
+    // ✅ Update the application with the new status
     await set(appRef, updated);
 
+    // ✅ If approved, do the extra updates
     if (status === "approved") {
+      // 1. Add volunteer under the charity's node
       const volunteerRef = ref(
         database,
         `users/${user.uid}/volunteers/${userId}`
@@ -83,19 +103,23 @@ function Volunteers() {
         approvedAt: new Date().toISOString(),
       });
 
+      // 2. Increment volunteer count
       await runTransaction(
         ref(database, `users/${user.uid}/volunteersCount`),
-        (n) => (n || 0) + 1
-      );
-      await runTransaction(
-        ref(database, `opportunities/${oppId}/appliedCount`),
-        (n) => (n || 0) + 1
+        (current) => (current || 0) + 1
       );
 
+      // 3. Increment applied count in the opportunity
+      await runTransaction(
+        ref(database, `opportunities/${oppId}/appliedCount`),
+        (current) => (current || 0) + 1
+      );
+
+      // 4. Close opportunity if full
       const oppSnapshot = await get(ref(database, `opportunities/${oppId}`));
       if (oppSnapshot.exists()) {
         const opp = oppSnapshot.val();
-        if ((opp.appliedCount || 0) + 1 >= opp.applicants) {
+        if ((opp.appliedCount || 0) >= opp.applicants) {
           await set(ref(database, `opportunities/${oppId}/status`), "closed");
         }
       }
@@ -130,8 +154,11 @@ function Volunteers() {
               </tr>
             </thead>
             <tbody>
-              {applicants.map((app, idx) => (
-                <tr key={idx} className="border-t">
+              {applicants.map((app) => (
+                <tr
+                  key={`${app.userId}-${app.opportunityId}`}
+                  className="border-t"
+                >
                   <td className="px-3 py-2">{app.name}</td>
                   <td className="px-3 py-2">{app.email}</td>
                   <td className="px-3 py-2">

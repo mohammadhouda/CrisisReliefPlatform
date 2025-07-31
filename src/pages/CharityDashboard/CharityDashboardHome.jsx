@@ -1,4 +1,3 @@
-// src/pages/CharityDashboard/CharityDashboardHome.jsx
 import React, { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -43,47 +42,68 @@ export default function CharityDashboardHome() {
       icon: faUsers,
     },
   ];
+
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
       setLoading(true);
-      const userRef = ref(database, `users/${user.uid}`);
+      try {
+        // 1. Fetch charity user data (name, volunteersCount)
+        const userRef = ref(database, `users/${user.uid}`);
+        const userSnap = await get(userRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.val();
+          setName(userData.name || "Unknown Charity");
+          setVolunteersCount(userData.volunteersCount || 0);
+        }
 
-      // Get charity name
-      const userSnap = await get(userRef);
-      if (userSnap.exists()) {
-        const userData = userSnap.val();
-        setName(userData.name || "Unknown Charity");
+        // 2. Fetch global opportunities filtered by charityId
+        const oppsRef = ref(database, "opportunities");
+        const oppSnap = await get(oppsRef);
+        let charityOpps = [];
+        if (oppSnap.exists()) {
+          const allOpps = oppSnap.val();
+          charityOpps = Object.entries(allOpps)
+            .filter(([_, opp]) => opp.charityId === user.uid)
+            .map(([id, opp]) => ({ id, ...opp }));
+        }
 
-        // Get Opportunities
-        const opps = userData.opportunities || {};
-        const oppArray = Object.entries(opps).map(([id, value]) => ({
-          id,
-          ...value,
-        }));
+        setOpportunitiesCount(charityOpps.length);
 
-        // Sort by most recent if possible
-        const sorted = [...oppArray].sort(
+        // Sort by date descending and get 2 recent
+        const sortedOpps = [...charityOpps].sort(
           (a, b) => new Date(b.date) - new Date(a.date)
         );
+        setRecentOpportunities(sortedOpps.slice(0, 2));
 
-        setOpportunitiesCount(oppArray.length);
-        setRecentOpportunities(sorted.slice(0, 2));
+        // 3. Fetch global projects filtered by charityId
+        const projectsRef = ref(database, "projects");
+        const projectsSnap = await get(projectsRef);
+        let charityProjects = [];
+        if (projectsSnap.exists()) {
+          const allProjects = projectsSnap.val();
+          charityProjects = Object.entries(allProjects)
+            .filter(([_, project]) => project.charityId === user.uid)
+            .map(([id, project]) => ({ id, ...project }));
+        }
 
-        // Projects
-        const projects = userData.projects || {};
-        setProjectsCount(Object.keys(projects).length);
-
-        // Volunteers
-        // Instead of counting volunteers keys:
-        const volunteersCount = userData.volunteersCount || 0;
-        setVolunteersCount(volunteersCount);
+        setProjectsCount(charityProjects.length);
+      } catch (error) {
+        console.error("Error fetching charity dashboard data:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchData();
   }, [user]);
+
+  if (loading)
+    return (
+      <p className="text-center mt-10 text-cyan-600 font-semibold">
+        Loading data...
+      </p>
+    );
 
   return (
     <div>

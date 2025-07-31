@@ -48,17 +48,26 @@ function Opportunities() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    const appliedRef = ref(database, "applications");
-    const unsubscribe = onValue(appliedRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      const applied = Object.entries(data)
-        .filter(([_, users]) => users[user.uid])
-        .map(([oppId]) => oppId);
-      setAppliedIds(applied);
+    if (!user?.uid) return;
+
+    const appsRef = ref(database, "applications_flat");
+    const unsubscribe = onValue(appsRef, (snapshot) => {
+      const data = snapshot.val();
+      const userAppliedIds = [];
+
+      if (data) {
+        Object.entries(data).forEach(([oppId, users]) => {
+          if (users && users[user.uid]) {
+            userAppliedIds.push(oppId);
+          }
+        });
+      }
+
+      setAppliedIds(userAppliedIds);
     });
+
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
   function showPopup(message) {
     setPopupMessage(message);
@@ -68,58 +77,52 @@ function Opportunities() {
   function handleApply(opportunityId) {
     if (!user) return showPopup("Please sign in to apply.");
 
-    const globalAppRef = ref(
+    const appRef = ref(
       database,
-      `applications/${opportunityId}/${user.uid}`
+      `applications_flat/${opportunityId}/${user.uid}`
     );
 
-    onValue(
-      globalAppRef,
-      async (snapshot) => {
-        if (snapshot.exists()) {
-          showPopup("You've already applied to this opportunity.");
-        } else {
-          const oppRef = ref(database, `opportunities/${opportunityId}`);
-          const oppSnapshot = await get(oppRef);
+    get(appRef).then(async (snapshot) => {
+      if (snapshot.exists()) {
+        showPopup("You've already applied to this opportunity.");
+      } else {
+        const oppRef = ref(database, `opportunities/${opportunityId}`);
+        const oppSnapshot = await get(oppRef);
 
-          if (!oppSnapshot.exists()) {
-            showPopup("Opportunity not found.");
-            return;
-          }
-
-          const opp = oppSnapshot.val();
-          const currentCount = opp.appliedCount || 0;
-
-          if (opp.status === "closed" || currentCount >= opp.applicants) {
-            showPopup("This opportunity is already full.");
-            return;
-          }
-
-          await set(globalAppRef, {
-            name,
-            email: user.email,
-            appliedAt: new Date().toISOString(),
-            status: "pending",
-          });
-
-          await set(
-            ref(database, `opportunities/${opportunityId}/appliedCount`),
-            currentCount + 1
-          );
-
-          // If this application fills the opportunity, mark it closed
-          if (currentCount + 1 >= opp.applicants) {
-            await set(
-              ref(database, `opportunities/${opportunityId}/status`),
-              "closed"
-            );
-          }
-
-          showPopup("Application submitted! Waiting for approval.");
+        if (!oppSnapshot.exists()) {
+          showPopup("Opportunity not found.");
+          return;
         }
-      },
-      { onlyOnce: true }
-    );
+
+        const opp = oppSnapshot.val();
+        const currentCount = opp.appliedCount || 0;
+
+        if (opp.status === "closed" || currentCount >= opp.applicants) {
+          showPopup("This opportunity is already full.");
+          return;
+        }
+
+        // Save under applications_flat/opportunityId/userId
+        await set(appRef, {
+          opportunityId,
+          userId: user.uid,
+          name,
+          email: user.email,
+          appliedAt: new Date().toISOString(),
+          status: "pending",
+        });
+
+        // Close if full
+        if (currentCount >= opp.applicants) {
+          await set(
+            ref(database, `opportunities/${opportunityId}/status`),
+            "closed"
+          );
+        }
+
+        showPopup("Application submitted! Waiting for approval.");
+      }
+    });
   }
 
   if (loading) return <p className="text-center mt-10">Loading...</p>;

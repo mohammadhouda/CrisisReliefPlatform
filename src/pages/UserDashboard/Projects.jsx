@@ -28,6 +28,9 @@ function Projects() {
 
   if (loading) return <p className="text-center mt-10">Loading projects...</p>;
 
+  if (projects.length === 0)
+    return <p className="text-center mt-10">No projects found.</p>;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
       {projects.map((project) => (

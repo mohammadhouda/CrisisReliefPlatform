@@ -26,11 +26,11 @@ export function UserAuthProvider({ children }) {
       const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
           try {
-            const snapshot = await get(
-              ref(database, "users/" + currentUser.uid)
-            );
+            const userRef = ref(database, `users/${currentUser.uid}`);
+            const snapshot = await get(userRef);
             if (snapshot.exists()) {
-              const userRole = snapshot.val().role;
+              const userData = snapshot.val();
+              const userRole = userData.role;
               if (userRole === "user" || userRole === "charity") {
                 setUser(currentUser);
                 setRole(userRole);
@@ -68,7 +68,7 @@ export function UserAuthProvider({ children }) {
       password
     );
     const userId = userCredential.user.uid;
-    const snapshot = await get(ref(database, "users/" + userId));
+    const snapshot = await get(ref(database, `users/${userId}`));
     if (snapshot.exists()) {
       const userRole = snapshot.val().role;
       if (userRole === "user" || userRole === "charity") {

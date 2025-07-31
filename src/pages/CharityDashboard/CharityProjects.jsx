@@ -26,8 +26,9 @@ const CharityProjects = () => {
   const [name, setName] = useState("");
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
-  const [deleteProject, setDeletingProject] = useState(false);
+  const [deletingProject, setDeletingProject] = useState(false);
 
+  // Fetch charity name
   useEffect(() => {
     let isMounted = true;
     const fetchName = async () => {
@@ -52,19 +53,22 @@ const CharityProjects = () => {
     };
   }, [user]);
 
+  // Fetch all projects globally filtered by current user's charityId
   useEffect(() => {
     const fetchProjects = async () => {
       if (!user) return;
       setLoadingProjects(true);
-      const projectsRef = ref(database, `users/${user.uid}/projects`);
+      const projectsRef = ref(database, `projects`);
       const snapshot = await get(projectsRef);
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const loadedProjects = Object.entries(data).map(([key, value]) => ({
-          id: key,
-          ...value,
-        }));
+        const loadedProjects = Object.entries(data)
+          .filter(([_, project]) => project.charityId === user.uid)
+          .map(([id, value]) => ({
+            id,
+            ...value,
+          }));
         setProjects(loadedProjects);
       } else {
         setProjects([]);
@@ -75,6 +79,7 @@ const CharityProjects = () => {
     fetchProjects();
   }, [user]);
 
+  // Create new project only under global projects node
   const handleCreateProject = async () => {
     const { title, description } = newProject;
     if (!title || !description || !user) return;
@@ -82,7 +87,7 @@ const CharityProjects = () => {
     setCreatingProject(true);
 
     const createdAt = new Date().toISOString().split("T")[0];
-    const projectId = push(ref(database)).key; // single key for both places
+    const projectId = push(ref(database, "projects")).key;
 
     const completeProjectData = {
       ...newProject,
@@ -91,16 +96,8 @@ const CharityProjects = () => {
       charityId: user.uid,
     };
 
-    // Save under user's node
-    await set(
-      ref(database, `users/${user.uid}/projects/${projectId}`),
-      completeProjectData
-    );
-
-    // Save under global node
     await set(ref(database, `projects/${projectId}`), completeProjectData);
 
-    // Update local state
     setProjects((prev) => [...prev, { id: projectId, ...completeProjectData }]);
 
     setNewProject({
@@ -115,14 +112,11 @@ const CharityProjects = () => {
     setCreatingProject(false);
   };
 
+  // Delete project from global node only
   const handleDeleteProject = async (projectId) => {
     if (!user) return;
     setDeletingProject(true);
 
-    // Delete from user's node
-    await remove(ref(database, `users/${user.uid}/projects/${projectId}`));
-
-    // Delete from global node
     await remove(ref(database, `projects/${projectId}`));
 
     setProjects((prev) => prev.filter((project) => project.id !== projectId));
@@ -176,7 +170,7 @@ const CharityProjects = () => {
                   className="text-red-600 hover:text-red-800"
                   onClick={() => handleDeleteProject(project.id)}
                 >
-                  {deleteProject ? (
+                  {deletingProject ? (
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent"></div>
                   ) : (
                     <FontAwesomeIcon icon={faTrash} />

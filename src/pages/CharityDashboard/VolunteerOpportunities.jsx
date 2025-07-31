@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FaPlus,
   FaSearch,
@@ -9,7 +9,6 @@ import {
   FaTrashAlt,
   FaTimes,
 } from "react-icons/fa";
-import { useEffect } from "react";
 import { useUserAuth } from "../../context/authcontext";
 import { ref, push, onValue, remove, set, get } from "firebase/database";
 import { database } from "../../Components/firebase";
@@ -33,6 +32,7 @@ export default function VolunteerOpportunities() {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("Unknown Charity");
 
+  // Fetch charity name once on mount or user change
   useEffect(() => {
     let isMounted = true;
     const fetchName = async () => {
@@ -57,17 +57,23 @@ export default function VolunteerOpportunities() {
     };
   }, [user]);
 
+  // Listen to all global opportunities (filtered by this charity if needed)
   useEffect(() => {
-    const charityId = user.uid;
+    if (!user) return;
     setLoading(true);
-    const oppsRef = ref(database, `users/${charityId}/opportunities`);
+
+    // Fetch all opportunities globally, then filter client-side by charityId if you want
+    const oppsRef = ref(database, "opportunities");
     const unsubscribe = onValue(oppsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const parsed = Object.entries(data).map(([id, value]) => ({
-          id,
-          ...value,
-        }));
+        const parsed = Object.entries(data)
+          .map(([id, value]) => ({
+            id,
+            ...value,
+          }))
+          // Optional: only show opportunities that belong to current charity
+          .filter((opp) => opp.charityId === user.uid);
         setOpportunities(parsed);
       } else {
         setOpportunities([]);
@@ -100,47 +106,40 @@ export default function VolunteerOpportunities() {
     setEditOpportunityId(null);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    const charityId = user.uid;
+    if (!user) return;
 
-    // Add to user's own opportunities node
-    const userOppsRef = ref(database, `users/${charityId}/opportunities`);
-    const newUserOppRef = push(userOppsRef);
-    const opportunityId = newUserOppRef.key;
+    const charityId = user.uid;
+    const charityName = name || "Unnamed Charity";
+
+    // Generate new opportunity id
+    const globalOppsRef = ref(database, "opportunities");
+    const newOppRef = push(globalOppsRef);
+    const opportunityId = newOppRef.key;
 
     const opportunityData = {
       ...newOpportunity,
       id: opportunityId,
       charityId,
-      charityName: name || "Unnamed Charity",
+      charityName,
     };
 
-    // Save under user's own node
-    set(newUserOppRef, opportunityData);
+    // Save only under global opportunities node
+    await set(newOppRef, opportunityData);
 
-    // Also add to global opportunities node
-    const globalOppsRef = ref(database, `opportunities/${opportunityId}`);
-    set(globalOppsRef, opportunityData);
     console.log("Opportunity created:", opportunityData);
 
     setIsCreateModalOpen(false);
     resetForm();
   }
 
-  function handleDelete(id) {
-    const charityId = user.uid;
+  async function handleDelete(id) {
+    if (!user) return;
 
-    // Delete from user's own node
-    const deleteUserRef = ref(
-      database,
-      `users/${charityId}/opportunities/${id}`
-    );
-    remove(deleteUserRef);
-
-    // Delete from global opportunities node
+    // Delete from global opportunities node only
     const deleteGlobalRef = ref(database, `opportunities/${id}`);
-    remove(deleteGlobalRef);
+    await remove(deleteGlobalRef);
   }
 
   return (
