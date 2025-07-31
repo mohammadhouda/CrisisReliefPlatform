@@ -46,7 +46,9 @@ HopeLink is a web platform that connects volunteers with charitable opportunitie
    git clone https://github.com/yourusername/hopelink.git
    cd hopelink
 
-2. **npm install**
+2. **install dependencies**
+   ```bash
+   npm install
 
 3️. **Configure Firebase**
 
@@ -73,6 +75,8 @@ HopeLink is a web platform that connects volunteers with charitable opportunitie
 
 
 4. **run the app**
+   ```bash
+   npm run start
    
 
 
