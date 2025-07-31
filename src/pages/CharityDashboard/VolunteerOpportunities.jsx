@@ -57,12 +57,12 @@ export default function VolunteerOpportunities() {
     };
   }, [user]);
 
-  // Listen to all global opportunities (filtered by this charity if needed)
+  // Listen to all global opportunities
   useEffect(() => {
     if (!user) return;
     setLoading(true);
 
-    // Fetch all opportunities globally, then filter client-side by charityId if you want
+    // Fetch all opportunities globally, then filter client-side by charityId
     const oppsRef = ref(database, "opportunities");
     const unsubscribe = onValue(oppsRef, (snapshot) => {
       const data = snapshot.val();
@@ -72,7 +72,7 @@ export default function VolunteerOpportunities() {
             id,
             ...value,
           }))
-          // Optional: only show opportunities that belong to current charity
+
           .filter((opp) => opp.charityId === user.uid);
         setOpportunities(parsed);
       } else {
@@ -137,14 +137,12 @@ export default function VolunteerOpportunities() {
   async function handleDelete(id) {
     if (!user) return;
 
-    // Delete from global opportunities node only
     const deleteGlobalRef = ref(database, `opportunities/${id}`);
     await remove(deleteGlobalRef);
   }
 
   return (
     <div className="p-6">
-      {/* Header and New Opportunity Button */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Opportunities</h1>
         <button
@@ -159,7 +157,6 @@ export default function VolunteerOpportunities() {
         </button>
       </div>
 
-      {/* Search and Filter */}
       <div className="flex space-x-4 mb-6">
         <div className="relative flex-grow">
           <input
@@ -182,7 +179,6 @@ export default function VolunteerOpportunities() {
         </select>
       </div>
 
-      {/* Opportunities List */}
       {loading ? (
         <div className="absolute top-1/2 left-1/2 flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-cyan-600 border-t-transparent"></div>

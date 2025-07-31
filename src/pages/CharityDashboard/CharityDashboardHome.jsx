@@ -48,7 +48,7 @@ export default function CharityDashboardHome() {
       if (!user) return;
       setLoading(true);
       try {
-        // 1. Fetch charity user data (name, volunteersCount)
+        // Fetch charity user data (name, volunteersCount)
         const userRef = ref(database, `users/${user.uid}`);
         const userSnap = await get(userRef);
         if (userSnap.exists()) {
@@ -57,7 +57,7 @@ export default function CharityDashboardHome() {
           setVolunteersCount(userData.volunteersCount || 0);
         }
 
-        // 2. Fetch global opportunities filtered by charityId
+        // Fetch global opportunities filtered by charityId
         const oppsRef = ref(database, "opportunities");
         const oppSnap = await get(oppsRef);
         let charityOpps = [];
@@ -70,13 +70,12 @@ export default function CharityDashboardHome() {
 
         setOpportunitiesCount(charityOpps.length);
 
-        // Sort by date descending and get 2 recent
+        // Get recent opportunities (last 2)
         const sortedOpps = [...charityOpps].sort(
           (a, b) => new Date(b.date) - new Date(a.date)
         );
         setRecentOpportunities(sortedOpps.slice(0, 2));
 
-        // 3. Fetch global projects filtered by charityId
         const projectsRef = ref(database, "projects");
         const projectsSnap = await get(projectsRef);
         let charityProjects = [];
@@ -203,7 +202,6 @@ export default function CharityDashboardHome() {
             </div>
           </div>
 
-          {/* Quick Actions */}
           <div className="rounded-lg bg-white p-6 shadow">
             <h2 className="text-lg font-medium text-gray-900">Quick Actions</h2>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">

@@ -88,12 +88,12 @@ function Volunteers() {
       status,
     };
 
-    // ✅ Update the application with the new status
+    // Update the application with the new status
     await set(appRef, updated);
 
-    // ✅ If approved, do the extra updates
+    // If approved, do the extra updates
     if (status === "approved") {
-      // 1. Add volunteer under the charity's node
+      // Add volunteer under the charity's node
       const volunteerRef = ref(
         database,
         `users/${user.uid}/volunteers/${userId}`
@@ -103,19 +103,19 @@ function Volunteers() {
         approvedAt: new Date().toISOString(),
       });
 
-      // 2. Increment volunteer count
+      // Increment volunteer count
       await runTransaction(
         ref(database, `users/${user.uid}/volunteersCount`),
         (current) => (current || 0) + 1
       );
 
-      // 3. Increment applied count in the opportunity
+      // Increment applied count in the opportunity
       await runTransaction(
         ref(database, `opportunities/${oppId}/appliedCount`),
         (current) => (current || 0) + 1
       );
 
-      // 4. Close opportunity if full
+      // Close opportunity if full
       const oppSnapshot = await get(ref(database, `opportunities/${oppId}`));
       if (oppSnapshot.exists()) {
         const opp = oppSnapshot.val();

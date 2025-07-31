@@ -53,6 +53,7 @@ function CharityLoginPage() {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="anera@gmail.org"
               required
               className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-cyan-500"
             />
@@ -69,6 +70,7 @@ function CharityLoginPage() {
               type="password"
               id="password"
               value={password}
+              placeholder="76344842"
               onChange={(e) => setPassword(e.target.value)}
               required
               className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-cyan-500"

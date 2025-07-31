@@ -56,7 +56,7 @@ function UserLogin() {
               type="email"
               id="email"
               required
-              placeholder="m@example.com"
+              placeholder="user@example.com"
               value={email}
               disabled={loading}
               onChange={(e) => setEmail(e.target.value)}
@@ -78,6 +78,7 @@ function UserLogin() {
               id="password"
               required
               value={password}
+              placeholder="76344842"
               disabled={loading}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-md border border-gray-300  bg-white  px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
